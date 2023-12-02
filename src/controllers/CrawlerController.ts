@@ -68,6 +68,46 @@ const headers = {
   Connection: "keep-alive",
 };
 
+function saveFiles(
+  html: string,
+  results: any,
+  images: any,
+  searchQuery: string
+) {
+  if (!fs.existsSync(path.join(__dirname, "..", "..", "searches"))) {
+    fs.mkdirSync(path.join(__dirname, "..", "..", "searches"));
+  }
+
+  if (
+    !fs.existsSync(path.join(__dirname, "..", "..", `searches/${searchQuery}`))
+  ) {
+    fs.mkdirSync(path.join(__dirname, "..", "..", `searches/${searchQuery}`));
+  }
+
+  fs.writeFileSync(
+    path.join(
+      __dirname,
+      "..",
+      "..",
+      "searches",
+      `${searchQuery}`,
+      `${searchQuery}.html`
+    ),
+    html
+  );
+  fs.writeFileSync(
+    path.join(
+      __dirname,
+      "..",
+      "..",
+      "searches",
+      `${searchQuery}`,
+      `${searchQuery}.json`
+    ),
+    JSON.stringify({ results, images })
+  );
+}
+
 class CrawlerController {
   async crawlGooglePage(req: Request, res: Response) {
     const searchQuery = req.query.q;
@@ -82,44 +122,9 @@ class CrawlerController {
 
       const html = response.data;
 
-      if (!fs.existsSync(path.join(__dirname, "..", "..", "searches"))) {
-        fs.mkdirSync(path.join(__dirname, "..", "..", "searches"));
-      }
-
-      if (
-        !fs.existsSync(
-          path.join(__dirname, "..", "..", `searches/${searchQuery}`)
-        )
-      ) {
-        fs.mkdirSync(
-          path.join(__dirname, "..", "..", `searches/${searchQuery}`)
-        );
-      }
-
       const { results, images } = parseGoogleResults(html);
 
-      fs.writeFileSync(
-        path.join(
-          __dirname,
-          "..",
-          "..",
-          "searches",
-          `${searchQuery}`,
-          `${searchQuery}.html`
-        ),
-        html
-      );
-      fs.writeFileSync(
-        path.join(
-          __dirname,
-          "..",
-          "..",
-          "searches",
-          `${searchQuery}`,
-          `${searchQuery}.json`
-        ),
-        JSON.stringify({ results, images })
-      );
+      saveFiles(html, results, images, `${searchQuery}`.replace(/\s/g, ""));
 
       res.send({ results, images });
     } catch (error) {
