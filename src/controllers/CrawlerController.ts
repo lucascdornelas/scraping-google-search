@@ -69,7 +69,7 @@ const headers = {
 };
 
 function saveFiles(
-  html: string,
+  htmlPages: string[],
   results: any,
   images: any,
   searchQuery: string
@@ -84,17 +84,20 @@ function saveFiles(
     fs.mkdirSync(path.join(__dirname, "..", "..", `searches/${searchQuery}`));
   }
 
-  fs.writeFileSync(
-    path.join(
-      __dirname,
-      "..",
-      "..",
-      "searches",
-      `${searchQuery}`,
-      `${searchQuery}.html`
-    ),
-    html
-  );
+  htmlPages.forEach((html, index) => {
+    fs.writeFileSync(
+      path.join(
+        __dirname,
+        "..",
+        "..",
+        "searches",
+        `${searchQuery}`,
+        `${searchQuery}-${index}.html`
+      ),
+      html
+    );
+  });
+
   fs.writeFileSync(
     path.join(
       __dirname,
@@ -111,22 +114,39 @@ function saveFiles(
 class CrawlerController {
   async crawlGooglePage(req: Request, res: Response) {
     const searchQuery = req.query.q;
+    const numberOfResults = req.query.n || 10;
+    const maxResultsPerPage = 10;
 
     try {
-      const response = await axios.get("https://www.google.com/search", {
-        params: {
-          q: searchQuery,
-        },
-        headers,
-      });
+      let totalResults = 0;
+      let currentPage = 1;
+      let allResults: any[] = [];
+      let allImages: any[] = [];
+      let htmlPages: string[] = [];
 
-      const html = response.data;
+      while (totalResults < Number(numberOfResults)) {
+        const response = await axios.get("https://www.google.com/search", {
+          params: {
+            q: searchQuery,
+            start: (currentPage - 1) * maxResultsPerPage,
+          },
+          headers,
+        });
 
-      const { results, images } = parseGoogleResults(html);
+        const html = response.data;
+        const { results, images } = parseGoogleResults(html);
 
-      saveFiles(html, results, images, `${searchQuery}`.replace(/\s/g, ""));
+        allResults = [...allResults, ...results];
+        allImages = [...allImages, ...images];
+        htmlPages.push(html);
 
-      res.send({ results, images });
+        totalResults += results.length;
+        currentPage++;
+      }
+
+      saveFiles(htmlPages, allResults, allImages, `${searchQuery}`.replace(/\s/g, ""));
+
+      res.send({ results: allResults, allImages });
     } catch (error) {
       console.error("Erro ao realizar a requisição:", error);
       res.status(500).json({ error: "Erro ao realizar a requisição" });
